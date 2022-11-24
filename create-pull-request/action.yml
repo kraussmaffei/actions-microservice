@@ -1,0 +1,103 @@
+name: "Create Pull Request"
+description: "Creates a pull request"
+inputs:
+  user-token:
+    description: "Token to be used to checkout the sources."
+    required: true
+  pip-index-url:
+    description: "The pip index url."
+    required: true
+  pip-extra-index-url:
+    description: "The pip extra index url."
+    required: true
+  new-microservice-version:
+    description: "The version number of the microservice. This information will be attached to the pr inormation."
+    required: true
+  organization:
+    description: "Organiztaion to use."
+    required: false
+    default: "kraussmaffei"
+  user-name:
+    description: "User name to use for commiting code changes."
+    required: false
+    default: "github-actions[bot]"
+  user-email:
+    description: "User email to use for commiting code changes."
+    required: false
+    default: "github-actions[bot]@users.noreply.github.com"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Get pr title
+      id: pr-metadata
+      env:
+        GITHUB_TOKEN: ${{ inputs.user-token }}
+      run: |
+        response=$(gh pr list --search ${{ github.sha }} --state merged --json title,url)
+        title=$(echo $response | jq -r '.[].title')
+        url=$(echo $response | jq -r '.[].url')
+        echo "TITLE=${title}" >> $GITHUB_OUTPUT
+        echo "URL=${url}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Clone "${{ inputs.organization }}/${{ matrix.repo }}"
+      uses: actions/checkout@v3
+      with:
+        repository: "${{ inputs.organization }}/${{ matrix.repo }}"
+        token: ${{ inputs.user-token }}
+        path: "./${{ matrix.repo }}"
+
+    - name: Configure git
+      run: |
+        git config --global user.name ${{ inputs.user-name }}
+        git config --global user.email ${{ inputs.user-email }}
+      shell: bash
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install balena-utils
+      env:
+        PIP_INDEX_URL: ${{ inputs.pip-index-url }}
+        PIP_EXTRA_INDEX_URL: ${{ inputs.pip-extra-index-url }}
+      run: |
+        pip install balena-utils
+      shell: bash
+
+    - name: Update docker compose and create PR on ${{ inputs.organization }}/${{ matrix.repo }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.user-token }}
+      run: |
+        cd ./${{ matrix.repo }}
+        git checkout -b ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+
+        smartcli update-docker-compose \
+          --container-name ${{ github.event.repository.name }} \
+          --version ${{ inputs.new-microservice-version }} \
+          --docker-compose-file "./docker-compose.yml"
+
+        git add "./docker-compose.yml"
+
+        commit_message=$(smartcli update-commit-message-scope --new-scope ${{ github.event.repository.name }} --commit-message "${{ steps.pr-metadata.outputs.TITLE }}")
+        git commit -m "$commit_message" -m "View the comparison here --> ${{ github.event.compare }}" -m "View the original PR here --> ${{ steps.pr-metadata.outputs.URL }}"
+        git push -u origin ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+
+        gh pr create \
+          --repo "${{ inputs.organization }}/${{ matrix.repo }}" \
+          --fill \
+          --base main \
+          --head ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+        cd ..
+      shell: bash
+
+    - name: Generate Summary
+      run: |
+        echo "Created PR on ${{ inputs.organization }}/${{ matrix.repo }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- Branch name is ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}" >> $GITHUB_STEP_SUMMARY
+      shell: bash
