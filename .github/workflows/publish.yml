@@ -1,0 +1,158 @@
+name: Publish Microservice
+on:
+  workflow_call:
+    inputs:
+      is_python_microservice:
+        description: "Whether it is a python microservice or not."
+        type: string
+        required: true
+      aws-account-id:
+        description: "The aws account id used for login."
+        type: string
+        required: false
+        default: "304998364617"
+      aws-region:
+        description: "AWS region of the codeartifact domain."
+        type: string
+        required: false
+        default: "eu-central-1"
+      organization:
+        description: "Organiztaion to use."
+        type: string
+        required: false
+        default: "kraussmaffei"
+      user-name:
+        description: "User name to use for commiting code changes."
+        type: string
+        required: false
+        default: "github-actions[bot]"
+      user-email:
+        description: "User email to use for commiting code changes."
+        type: string
+        required: false
+        default: "github-actions[bot]@users.noreply.github.com"
+    secrets:
+      pip-index-url:
+        description: "The pip index url."
+        required: true
+      pip-extra-index-url:
+        description: "The pip extra index url."
+        required: true
+      user-token:
+        description: "Token to be used to checkout the sources."
+        required: false
+      sonar-token:
+        description: "The token to use for sonarcloud."
+        required: false
+
+jobs:
+  python-quality-tasks:
+    if: inputs.is_python_microservice == 'true'
+    uses: kraussmaffei/km-actions-python/.github/workflows/reusable-quality-tasks.yml@EDGE-1662
+    with:
+      python-version: "3.8"
+      python-package-path: $(echo ${GITHUB_REPOSITORY##*/} | tr -s '-' '_')
+      aws-account-id: ${{ inputs.aws-account-id }}
+      aws-region: ${{ inputs.aws-region }}
+      codeartifact-domain: ${{ inputs.organization }}
+      codeartifact-repository: "dss"
+    secrets:
+      pip-index-url: ${{ secrets.pip-index-url }}
+      pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
+      ci-token: ${{ secrets.user-token }}
+      sonar-token: ${{ secrets.sonar-token }}
+
+  publish-python-package:
+    if: inputs.is_python_microservice == 'true'
+    needs: [python-quality-tasks]
+    uses: kraussmaffei/km-actions-python/.github/workflows/reusable-build-and-push.yml@EDGE-1662
+    with:
+      python-version: "3.8"
+      aws-account-id: ${{ inputs.aws-account-id }}
+      aws-region: ${{ inputs.aws-region }}
+      codeartifact-domain: ${{ inputs.organization }}
+      codeartifact-repository: "dss"
+    secrets:
+      pip-index-url: ${{ secrets.pip-index-url }}
+      pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
+      user-token: ${{ secrets.user-token }}
+
+  publish-docker-image:
+    needs: [python-quality-tasks, publish-python-package]
+    uses: kraussmaffei/actions-docker/.github/workflows/publish.yml@main
+    with:
+      aws-account-id: ${{ inputs.aws-account-id }}
+      aws-region: ${{ inputs.aws-region }}
+      docker-file: "Dockerfile.production"
+      docker-image-version-tag: ${{ needs.publish-python-package.outputs.published-python-package-version }}
+    secrets:
+      pip-index-url: ${{ secrets.pip-index-url }}
+      pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
+
+  create-pull-request:
+    name: "Create pull request on balena repos"
+    runs-on: ubuntu-22.04
+    needs: [publish-python-package, publish-docker-image]
+    strategy:
+      matrix:
+        repo: ["balena-smartcube", "balena-smartlink"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Get pr title
+        id: pr-metadata
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title=$(gh pr list --search ${{ github.sha }} --state merged --json title | jq -r '.[].title')
+          echo "TITLE=${title}" >> $GITHUB_OUTPUT
+          echo "### PR Title: ${title}" >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Clone "${{ inputs.organization }}/${{ matrix.repo }}"
+        uses: actions/checkout@v3
+        with:
+          repository: "${{ inputs.organization }}/${{ matrix.repo }}"
+          token: ${{ secrets.user-token }}
+          path: "./${{ matrix.repo }}"
+
+      - name: Configure git
+        run: |
+          git config --global user.name ${{ inputs.user-name }}
+          git config --global user.email ${{ inputs.user-email }}
+        shell: bash
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install balena-utils
+        env:
+          PIP_INDEX_URL: ${{ secrets.pip-index-url }}
+          PIP_EXTRA_INDEX_URL: ${{ secrets.pip-extra-index-url }}
+        run: |
+          pip install balena-utils
+
+      - name: Update docker compose
+        env:
+          GITHUB_TOKEN: ${{ secrets.user-token }}
+        run: |
+          cd ./${{ matrix.repo }}
+          git checkout -b ${{ github.event.repository.name }}-${{ needs.publish-python-package.outputs.published-python-package-version }}
+
+          smartcli update-docker-compose \
+            --container-name ${{ github.event.repository.name }} \
+            --version ${{ needs.publish-python-package.outputs.published-python-package-version }} \
+            --docker-compose-file "./docker-compose.yml"
+
+          git add "./docker-compose.yml"
+          git commit -m "${{ steps.pr-metadata.outputs.TITLE }}"
+          git push -u origin ${{ github.event.repository.name }}-${{ needs.publish-python-package.outputs.published-python-package-version }}
+
+          gh pr create \
+            --repo "${{ inputs.organization }}/${{ matrix.repo }}" \
+            --fill \
+            --base main \
+            --head ${{ github.event.repository.name }}-${{ needs.publish-python-package.outputs.published-python-package-version }}
+          cd ..
+        shell: bash
