@@ -48,7 +48,7 @@ on:
 jobs:
   python-quality-tasks:
     if: inputs.is_python_microservice == 'true'
-    uses: kraussmaffei/km-actions-python/.github/workflows/reusable-quality-tasks.yml@EDGE-1662
+    uses: kraussmaffei/actions-python/.github/workflows/quality-tasks.yml@main
     with:
       python-version: "3.8"
       python-package-path: $(echo ${GITHUB_REPOSITORY##*/} | tr -s '-' '_')
@@ -65,7 +65,7 @@ jobs:
   publish-python-package:
     if: inputs.is_python_microservice == 'true'
     needs: [python-quality-tasks]
-    uses: kraussmaffei/km-actions-python/.github/workflows/reusable-build-and-push.yml@EDGE-1662
+    uses: kraussmaffei/actions-python/.github/workflows/build-and-push.yml@main
     with:
       python-version: "3.8"
       aws-account-id: ${{ inputs.aws-account-id }}
@@ -126,6 +126,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+
       - name: Install balena-utils
         env:
           PIP_INDEX_URL: ${{ secrets.pip-index-url }}
