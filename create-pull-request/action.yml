@@ -93,13 +93,10 @@ runs:
             --fill \
             --base main \
             --head ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+
+          echo "Created PR on ${{ inputs.organization }}/${{ matrix.repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch name is ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}" >> $GITHUB_STEP_SUMMARY
         fi
         cd ..
-      shell: bash
-
-    - name: Generate Summary
-      run: |
-        echo "Created PR on ${{ inputs.organization }}/${{ matrix.repo }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- Branch name is ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}" >> $GITHUB_STEP_SUMMARY
       shell: bash
