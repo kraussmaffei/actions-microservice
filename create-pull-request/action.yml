@@ -81,17 +81,19 @@ runs:
           --version ${{ inputs.new-microservice-version }} \
           --docker-compose-file "./docker-compose.yml"
 
-        git add "./docker-compose.yml"
+        if [ ! -z "$(git status --porcelain)" ]; then 
+          git add "./docker-compose.yml"
 
-        commit_message=$(smartcli update-commit-message-scope --new-scope ${{ github.event.repository.name }} --commit-message "${{ steps.pr-metadata.outputs.TITLE }}")
-        git commit -m "$commit_message" -m "View the comparison here --> ${{ github.event.compare }}" -m "View the original PR here --> ${{ steps.pr-metadata.outputs.URL }}"
-        git push -u origin ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+          commit_message=$(smartcli update-commit-message-scope --new-scope ${{ github.event.repository.name }} --commit-message "${{ steps.pr-metadata.outputs.TITLE }}")
+          git commit -m "$commit_message" -m "View the comparison here --> ${{ github.event.compare }}" -m "View the original PR here --> ${{ steps.pr-metadata.outputs.URL }}"
+          git push -u origin ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
 
-        gh pr create \
-          --repo "${{ inputs.organization }}/${{ matrix.repo }}" \
-          --fill \
-          --base main \
-          --head ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+          gh pr create \
+            --repo "${{ inputs.organization }}/${{ matrix.repo }}" \
+            --fill \
+            --base main \
+            --head ${{ github.event.repository.name }}-${{ inputs.new-microservice-version }}
+        fi
         cd ..
       shell: bash
 
