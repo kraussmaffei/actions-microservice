@@ -20,6 +20,11 @@ on:
         description: "The aws codeartifact repository to use."
         type: string
         required: true
+      additional-script-path:
+        description: "File path to the script which shall be additionally executed."
+        type: string
+        required: false
+        default: ""
       user-name:
         description: "User name to use for commiting code changes."
         type: string
@@ -50,6 +55,7 @@ jobs:
     with:
       python-version: "3.8"
       python-package-path: $(echo ${GITHUB_REPOSITORY##*/} | tr -s '-' '_')
+      additional-script-path: ${{ inputs.additional-script-path }}
     secrets:
       pip-index-url: ${{ secrets.pip-index-url }}
       pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
