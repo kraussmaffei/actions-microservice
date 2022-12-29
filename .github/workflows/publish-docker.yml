@@ -43,41 +43,33 @@ on:
         required: true
 
 jobs:
-  create-version-tag:
-    name: "Create Version Tag"
-    runs-on: ubuntu-20.04
+  semantic-release:
+    name: "Run Semantic Release"
+    runs-on: ubuntu-22.04
     outputs:
-      tag-version: ${{ steps.semantic-version.outputs.version_tag }}
+      tag-version: ${{ steps.semantic-release.outputs.new_release_version }}
+      new-release: ${{ steps.semantic-release.outputs.new_release_published }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 0
-
-      - name: Get next version
-        id: semantic-version
-        uses: kraussmaffei/actions/semantic-version@main
-        with:
-          tag_prefix: ""
-          format: "${major}.${minor}.${patch}"
-          major_pattern: "BREAKING CHANGE:"
-          minor_pattern: "feat:"
-          short_tags: false
-
-      - name: Push version tag
-        if: github.ref == 'refs/heads/main'
-        run: |
-          git tag ${{ steps.semantic-version.outputs.version_tag }}
-          git push origin --tags
+          persist-credentials: false
+      - name: Semantic Release
+        id: semantic-release
+        uses: cycjimmy/semantic-release-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.user-token }}
 
   publish-docker-image:
-    needs: [create-version-tag]
+    needs: [semantic-release]
+    if: needs.semantic-release.outputs.new-release == 'true'
     uses: kraussmaffei/actions-docker/.github/workflows/publish.yml@main
     with:
       aws-account-id: ${{ inputs.aws-account-id }}
       aws-region: ${{ inputs.aws-region }}
       docker-file: ${{ inputs.docker-file }}
-      docker-image-version-tag: ${{ needs.create-version-tag.outputs.tag-version }}
+      docker-image-version-tag: ${{ needs.semantic-release.outputs.tag-version }}
     secrets:
       pip-index-url: ${{ secrets.pip-index-url }}
       pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
@@ -85,7 +77,7 @@ jobs:
   create-pull-request:
     name: "Create pull request on balena repos"
     runs-on: ubuntu-22.04
-    needs: [create-version-tag, publish-docker-image]
+    needs: [semantic-release, publish-docker-image]
     strategy:
       matrix:
         repo: ["balena-smartcube", "balena-smartlink"]
@@ -96,4 +88,4 @@ jobs:
           user-token: ${{ secrets.user-token }}
           pip-index-url: ${{ secrets.pip-index-url }}
           pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
-          new-microservice-version: ${{ needs.create-version-tag.outputs.tag-version }}
+          new-microservice-version: ${{ needs.semantic-release.outputs.tag-version }}
