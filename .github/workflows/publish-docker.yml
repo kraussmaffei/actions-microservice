@@ -31,6 +31,11 @@ on:
         type: string
         required: false
         default: "Dockerfile"
+      use-semantic-release-configuration-file:
+        description: "Wheter a configuration file shall be used for semantic release or not. See, https://github.com/semantic-release/semantic-release/blob/master/docs/usage/configuration.md#configuration-file"
+        type: string
+        required: false
+        default: "false"
     secrets:
       user-token:
         description: "Token to be used to checkout the sources."
@@ -50,16 +55,17 @@ jobs:
       release-version: ${{ steps.semantic-release.outputs.release-version }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          token: ${{ inputs.user-token }}
+          token: ${{ secrets.user-token }}
 
       - name: Semantic Release
         id: semantic-release
-        uses: kraussmaffei/actions-microservice/create-release@main
+        uses: kraussmaffei/actions-microservice/create-release@semantic-release
         with:
           user-token: ${{ secrets.user-token }}
+          use-configuration-file: ${{ inputs.use-semantic-release-configuration-file }}
 
   publish-docker-image:
     needs: [semantic-release]

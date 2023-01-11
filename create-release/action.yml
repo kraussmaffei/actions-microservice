@@ -36,7 +36,6 @@ runs:
       uses: actions/setup-node@v3
       with:
         node-version: ${{ inputs.node-version }}
-        cache: "npm"
 
     - name: "Install dependencies"
       run: |
@@ -52,15 +51,20 @@ runs:
         git config --global user.name ${{ inputs.git-user }}
         git config --global user.email ${{ inputs.git-email }}
 
-        if [[ "${{use-configuration-file}}" != "true" ]]; then
-          export RELEASE_VERSION=$(semantic-release --debug true \
-            | grep 'Release note' | grep -Po "(\d+)\.(\d+)\.(\d+)")
+        if [[ "${{ inputs.use-configuration-file }}" == "true" ]]; then
+          export RELEASE_VERSION=$(semantic-release --no-ci --dry-run | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+')
+          semantic-release
         else
           export RELEASE_VERSION=$(semantic-release --branches ${{ inputs.branch }} \
             --tag-format '${version}' \
             --plugins '@semantic-release/commit-analyzer,@semantic-release/release-notes-generator,@semantic-release/changelog,@semantic-release/github,@semantic-release/git' \
-            --debug true \
-            | grep 'Release note' | grep -Po "(\d+)\.(\d+)\.(\d+)")
+            --no-ci --dry-run \
+            | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+')
+
+          semantic-release --branches ${{ inputs.branch }} \
+            --tag-format '${version}' \
+            --plugins '@semantic-release/commit-analyzer,@semantic-release/release-notes-generator,@semantic-release/changelog,@semantic-release/github,@semantic-release/git'
+
         fi
         echo "release-version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
       env:
