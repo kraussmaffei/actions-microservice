@@ -31,6 +31,11 @@ on:
         type: string
         required: false
         default: "Dockerfile"
+      use-semantic-release-configuration-file:
+        description: "Wheter a configuration file shall be used for semantic release or not. See, https://github.com/semantic-release/semantic-release/blob/master/docs/usage/configuration.md#configuration-file"
+        type: string
+        required: false
+        default: "false"
     secrets:
       user-token:
         description: "Token to be used to checkout the sources."
@@ -47,29 +52,31 @@ jobs:
     name: "Run Semantic Release"
     runs-on: ubuntu-22.04
     outputs:
-      tag-version: ${{ steps.semantic-release.outputs.new_release_version }}
-      new-release: ${{ steps.semantic-release.outputs.new_release_published }}
+      release-version: ${{ steps.semantic-release.outputs.release-version }}
+      new-release-created: ${{ steps.semantic-release.outputs.new-release-created }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
-          persist-credentials: false
+          fetch-depth: 0
+          token: ${{ secrets.user-token }}
+
       - name: Semantic Release
         id: semantic-release
-        uses: cycjimmy/semantic-release-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.user-token }}
+        uses: kraussmaffei/actions-microservice/create-release@main
+        with:
+          user-token: ${{ secrets.user-token }}
+          use-configuration-file: ${{ inputs.use-semantic-release-configuration-file }}
 
   publish-docker-image:
     needs: [semantic-release]
-    if: needs.semantic-release.outputs.new-release == 'true'
+    if: needs.semantic-release.outputs.new-release-created == 'true'
     uses: kraussmaffei/actions-docker/.github/workflows/publish.yml@main
     with:
       aws-account-id: ${{ inputs.aws-account-id }}
       aws-region: ${{ inputs.aws-region }}
       docker-file: ${{ inputs.docker-file }}
-      docker-image-version-tag: ${{ needs.semantic-release.outputs.tag-version }}
+      docker-image-version-tag: ${{ needs.semantic-release.outputs.release-version }}
     secrets:
       pip-index-url: ${{ secrets.pip-index-url }}
       pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
