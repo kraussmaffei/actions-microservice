@@ -10,8 +10,6 @@ name: Continuous Integration
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 concurrency:
   group: ${{ github.ref }}
