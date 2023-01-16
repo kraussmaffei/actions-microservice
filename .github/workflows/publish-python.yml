@@ -55,6 +55,7 @@ jobs:
     with:
       python-version: "3.8"
       python-package-path: $(echo ${GITHUB_REPOSITORY##*/} | tr -s '-' '_')
+      additional-script-path: ${{ inputs.additional-script-path }}
       aws-account-id: ${{ inputs.aws-account-id }}
       codeartifact-repository: ${{ inputs.codeartifact-repository }}
     secrets:
