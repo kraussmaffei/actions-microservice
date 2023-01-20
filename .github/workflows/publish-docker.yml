@@ -95,4 +95,4 @@ jobs:
           user-token: ${{ secrets.user-token }}
           pip-index-url: ${{ secrets.pip-index-url }}
           pip-extra-index-url: ${{ secrets.pip-extra-index-url }}
-          new-microservice-version: ${{ needs.semantic-release.outputs.tag-version }}
+          new-microservice-version: ${{ needs.semantic-release.outputs.release-version }}
