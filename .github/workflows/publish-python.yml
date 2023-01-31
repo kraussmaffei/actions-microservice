@@ -35,6 +35,11 @@ on:
         type: string
         required: false
         default: "github-actions[bot]@users.noreply.github.com"
+      python-version:
+        description: "Python version used to test and publish python package"
+        type: string
+        required: false
+        default: "3.8"
     secrets:
       pip-index-url:
         description: "The pip index url."
@@ -53,7 +58,7 @@ jobs:
   publish-python-package:
     uses: kraussmaffei/actions-python/.github/workflows/test-and-publish.yml@main
     with:
-      python-version: "3.8"
+      python-version: ${{ inputs.python-version }}
       python-package-path: $(echo ${GITHUB_REPOSITORY##*/} | tr -s '-' '_')
       additional-script-path: ${{ inputs.additional-script-path }}
       aws-account-id: ${{ inputs.aws-account-id }}
