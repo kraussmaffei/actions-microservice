@@ -55,14 +55,14 @@ runs:
         git config --global user.email ${{ inputs.git-email }}
 
         if [[ "${{ inputs.use-configuration-file }}" == "true" ]]; then
-          export RELEASE_VERSION=$(semantic-release --no-ci --dry-run true | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+')
+          export RELEASE_VERSION=$(semantic-release --no-ci --dry-run true | grep -oP 'next release version is \K[0-9]+\.[0-9]+\.[0-9]+')
           semantic-release
         else
           export RELEASE_VERSION=$(semantic-release --branches ${{ inputs.branch }} \
                       --tag-format '${version}' \
                       --plugins '@semantic-release/commit-analyzer,@semantic-release/release-notes-generator,@semantic-release/changelog,@semantic-release/github,@semantic-release/git' \
                       --no-ci --dry-run true --debug true \
-                      | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+')
+                      | grep -oP 'next release version is \K[0-9]+\.[0-9]+\.[0-9]+')
 
           semantic-release --branches ${{ inputs.branch }} \
             --tag-format '${version}' \
