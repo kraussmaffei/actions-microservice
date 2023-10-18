@@ -45,6 +45,11 @@ on:
         required: false
         type: string
         default: false
+      docker-file:
+        description: "Docker file to build the docker image from."
+        required: false
+        type: string
+        default: "Dockerfile.production"
     secrets:
       pip-index-url:
         description: "The pip index url."
@@ -81,7 +86,7 @@ jobs:
     with:
       aws-account-id: ${{ inputs.aws-account-id }}
       aws-region: ${{ inputs.aws-region }}
-      docker-file: "Dockerfile.production"
+      docker-file: ${{ inputs.docker-file }}
       docker-image-version-tag: ${{ needs.publish-python-package.outputs.published-python-package-version }}
     secrets:
       pip-index-url: ${{ secrets.pip-index-url }}
