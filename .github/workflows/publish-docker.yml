@@ -50,7 +50,7 @@ on:
 jobs:
   semantic-release:
     name: "Run Semantic Release"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       release-version: ${{ steps.semantic-release.outputs.release-version }}
       new-release-created: ${{ steps.semantic-release.outputs.new-release-created }}
@@ -83,7 +83,7 @@ jobs:
 
   create-pull-request:
     name: "Create pull request on balena repos"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [semantic-release, publish-docker-image]
     strategy:
       matrix:
