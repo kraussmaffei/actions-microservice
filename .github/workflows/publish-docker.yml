@@ -87,7 +87,7 @@ jobs:
     needs: [semantic-release, publish-docker-image]
     strategy:
       matrix:
-        repo: ["balena-smartcube", "balena-smartlink"]
+        repo: ["balena-smartcube"]
     steps:
       - name: "Create pull request"
         uses: kraussmaffei/actions-microservice/create-pull-request@main
