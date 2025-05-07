@@ -98,7 +98,7 @@ jobs:
     needs: [publish-docker-image, publish-python-package]
     strategy:
       matrix:
-        repo: ["balena-smartcube", "balena-smartlink"]
+        repo: ["balena-smartcube"]
     steps:
       - name: "Create pull request"
         uses: kraussmaffei/actions-microservice/create-pull-request@main
